@@ -1,5 +1,6 @@
 package uj.java.map2d;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -213,6 +214,218 @@ public interface Map2D<R, C, V> {
      * @return new instance of {@code Map2D}
      */
     static <R,C,V> Map2D<R,C,V> createInstance() {
+        return new Map2dImpl<>();
+    }
+}
+
+
+class Map2dImpl<R, C, V> implements Map2D<R, C, V> {
+    Map<R, Map<C,V>> map2d = new HashMap<>();
+
+    @java.lang.Override
+    public V put(R rowKey, C columnKey, V value){
+        if(rowKey == null || columnKey == null)
+            throw new NullPointerException();
+        if(map2d.containsKey(rowKey)){
+            return map2d.get(rowKey).put(columnKey, value);
+        } else {
+            Map<C, V> columnMap = new HashMap<>();
+            map2d.put(rowKey, columnMap);
+            return columnMap.put(columnKey, value);
+        }
+    }
+
+    @java.lang.Override
+    public V get(R rowKey, C columnKey){
+        if(map2d.containsKey(rowKey)){
+            if(map2d.get(rowKey).containsKey(columnKey))
+                return map2d.get(rowKey).get(columnKey);
+            return null;
+        }
+        return null;
+        /*return map.get(new PairGeneric<>(rowKey, columnKey));*/
+    }
+
+    @java.lang.Override
+    public V getOrDefault(R rowKey, C columnKey, V defaultValue) {
+        var contain = get(rowKey, columnKey);
+        if(contain == null)
+            return defaultValue;
+        return contain;
+        /*return map.getOrDefault(new PairGeneric<>(rowKey, columnKey), defaultValue);*/
+    }
+
+    @java.lang.Override
+    public V remove(R rowKey, C columnKey) {
+        if(map2d.containsKey(rowKey)) {
+            if (map2d.get(rowKey).containsKey(columnKey))
+                return map2d.get(rowKey).remove(columnKey);
+            return null;
+        }
+        return null;
+        /*return map.remove(new PairGeneric<>(rowKey, columnKey));*/
+    }
+
+    @java.lang.Override
+    public boolean isEmpty() {
+        return map2d.isEmpty();
+    }
+
+    @java.lang.Override
+    public boolean nonEmpty() {
+        return !isEmpty();
+    }
+
+    @java.lang.Override
+    public int size() {
+        int size = 0;
+        for(var rowKey : map2d.keySet()){
+            size += (long) map2d.get(rowKey).keySet().size();
+        }
+        return size;
+    }
+
+    @java.lang.Override
+    public void clear() {
+        map2d.clear();
+    }
+
+    @java.lang.Override
+    public Map<C, V> rowView(R rowKey) {
+        if(map2d.containsKey(rowKey))
+            return new HashMap<>(map2d.get(rowKey));
         return null;
     }
+
+    @java.lang.Override
+    public Map<R, V> columnView(C columnKey) {
+        if(hasColumn(columnKey)){
+            Map<R, V> columnMap = new HashMap<>();
+            for(var rowKey : map2d.keySet()){
+                if(map2d.get(rowKey).containsKey(columnKey)){
+                    columnMap.put(rowKey, map2d.get(rowKey).get(columnKey));
+                }
+            }
+            return new HashMap<>(columnMap);
+        }
+        return null;
+    }
+
+    @java.lang.Override
+    public boolean hasValue(V value) {
+        for (var rowKey : map2d.keySet())
+            if(map2d.get(rowKey).containsValue(value)) return true;
+        return false;
+    }
+
+    @java.lang.Override
+    public boolean hasKey(R rowKey, C columnKey) {
+        if(map2d.containsKey(rowKey))
+            return map2d.get(rowKey).containsKey(columnKey);
+        return false;
+    }
+
+    @java.lang.Override
+    public boolean hasRow(R rowKey) {
+        return map2d.containsKey(rowKey);
+    }
+
+    @java.lang.Override
+    public boolean hasColumn(C columnKey) {
+        for(var rowKey : map2d.keySet()){
+            if(map2d.get(rowKey).containsKey(columnKey)) return true;
+        }
+        return false;
+    }
+
+    @java.lang.Override
+    public Map<R, Map<C, V>> rowMapView() {
+        Map<R, Map<C, V>> rowMap = new HashMap<>();
+        for(var rowKey : map2d.keySet()){
+            rowMap.put(rowKey, rowView(rowKey));
+        }
+        return rowMap;
+    }
+
+    @java.lang.Override
+    public Map<C, Map<R, V>> columnMapView() {
+        Map<C, Map<R, V>> columnMap = new HashMap<>();
+        for(var rowKey : map2d.keySet()){
+            for (var columnKey : map2d.get(rowKey).keySet()){
+                if(!columnMap.containsKey(columnKey))
+                    columnMap.put(columnKey, new HashMap<>());
+                columnMap.get(columnKey).put(rowKey, map2d.get(rowKey).get(columnKey));
+            }
+        }
+        return columnMap;
+    }
+
+    @java.lang.Override
+    public uj.java.map2d.Map2D<R, C, V> fillMapFromRow(Map<? super C, ? super V> target, R rowKey) {
+        if(map2d.get(rowKey) != null) {
+            for (var columnKey : map2d.get(rowKey).keySet()) {
+                target.put(columnKey, map2d.get(rowKey).get(columnKey));
+            }
+        }
+        return this;
+    }
+
+    @java.lang.Override
+    public uj.java.map2d.Map2D<R, C, V> fillMapFromColumn(Map<? super R, ? super V> target, C columnKey) {
+        if(hasColumn(columnKey)){
+            for(var rowKey : map2d.keySet()){
+                if(map2d.get(rowKey).containsKey(columnKey)){
+                    target.put(rowKey, map2d.get(rowKey).get(columnKey));
+                }
+            }
+        }
+        return this;
+    }
+
+    @java.lang.Override
+    public uj.java.map2d.Map2D<R, C, V> putAll(uj.java.map2d.Map2D<? extends R, ? extends C, ? extends V> source) {
+        for(var rowKey : source.rowMapView().keySet()){
+            for (var columnKey : source.columnMapView().keySet()){
+                put(rowKey,columnKey, source.rowMapView().get(rowKey).get(columnKey));
+            }
+        }
+        return this;
+    }
+
+    @java.lang.Override
+    public uj.java.map2d.Map2D<R, C, V> putAllToRow(Map<? extends C, ? extends V> source, R rowKey) {
+        if(!map2d.containsKey(rowKey))
+            map2d.put(rowKey, new HashMap<>());
+        for (var columnKey : source.keySet()){
+            map2d.get(rowKey).put(columnKey,source.get(columnKey));
+        }
+        return this;
+    }
+
+    @java.lang.Override
+    public uj.java.map2d.Map2D<R, C, V> putAllToColumn(Map<? extends R, ? extends V> source, C columnKey) {
+        for (var rowKey : source.keySet()){
+            if(!map2d.containsKey(rowKey)){
+                map2d.put(rowKey, new HashMap<>());
+            }
+            map2d.get(rowKey).put(columnKey, source.get(rowKey));
+        }
+        return this;
+    }
+
+    @java.lang.Override
+    public <R2, C2, V2> uj.java.map2d.Map2D<R2, C2, V2> copyWithConversion(Function<? super R, ? extends R2> rowFunction, Function<? super C, ? extends C2> columnFunction, Function<? super V, ? extends V2> valueFunction) {
+        Map2D<R2, C2, V2> copyMap = Map2D.createInstance();
+        for (var rowKey : map2d.keySet()){
+            for(var columnKey : map2d.get(rowKey).keySet()){
+                copyMap.put(
+                        rowFunction.apply(rowKey),
+                        columnFunction.apply(columnKey),
+                        valueFunction.apply(map2d.get(rowKey).get(columnKey))
+                );
+            }
+        }
+        return copyMap;
+    }
+
 }
